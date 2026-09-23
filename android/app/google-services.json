@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "216483381190",
+    "project_id": "pos-nlh",
+    "storage_bucket": "pos-nlh.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:216483381190:android:7901f621c03cc39b9a3cc7",
+        "android_client_info": {
+          "package_name": "com.naylinhtet.posnlh"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD1PJ0yyeXzX2xZrBMfW9z0oN7etQyzL7k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
