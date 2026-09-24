@@ -15,7 +15,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   FilterType _selectedFilter = FilterType.daily;
   DateTime _selectedDate = DateTime.now();
 
-  // Selected Filter ပေါ်မူတည်ပြီး Date Range တွက်ချက်ခြင်း
   DateTimeRange _getDateRange() {
     final now = _selectedDate;
     if (_selectedFilter == FilterType.daily) {
@@ -48,7 +47,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Filter Toggle Buttons (Daily, Monthly, Yearly)
+            // Filter Toggle Buttons (DAILY, MONTHLY, YEARLY)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: FilterType.values.map((filter) {
@@ -121,14 +120,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             const SizedBox(height: 20),
 
-            // 🟢 Sales Stream (createdAt သို့မဟုတ် timestamp field ပေါ်မူတည်၍ Filter လုပ်ခြင်း)
+            // Stream Builder
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('Shops')
                   .doc(uid)
-                  .collection(
-                    'sales',
-                  ) // Collection နာမည် 'sales' (အသေး) သို့ ပြင်ထားပါသည်
+                  .collection('sales')
                   .where('createdAt', isGreaterThanOrEqualTo: range.start)
                   .where('createdAt', isLessThanOrEqualTo: range.end)
                   .snapshots(),
@@ -149,49 +146,111 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       return const Center(child: CircularProgressIndicator());
                     }
 
-                    // 🟢 ဝင်ငွေ စုစုပေါင်း တွက်ချက်ခြင်း (Firestore ထဲက 'total' field ကို ယူသုံးထားပါသည်)
                     double totalRevenue = 0;
+                    Map<String, double> salesCategoryMap = {};
+
+                    // 🟢 Sales & Category တွက်ချက်ခြင်း
                     if (salesSnapshot.hasData) {
                       for (var doc in salesSnapshot.data!.docs) {
                         final data = doc.data() as Map<String, dynamic>;
-                        totalRevenue += (data['total'] ?? 0)
-                            .toDouble(); // 'total' field
+                        totalRevenue += (data['total'] ?? 0).toDouble();
+
+                        // sales doc ထဲက items/products array သို့မဟုတ် map များကို စစ်ဆေးခြင်း
+                        if (data['items'] != null && data['items'] is List) {
+                          for (var item in data['items']) {
+                            String catName =
+                                item['category'] ??
+                                item['categoryName'] ??
+                                'Uncategorized';
+                            double itemTotal =
+                                (item['total'] ??
+                                        ((item['price'] ?? 0) *
+                                            (item['quantity'] ?? 1)))
+                                    .toDouble();
+
+                            salesCategoryMap[catName] =
+                                (salesCategoryMap[catName] ?? 0) + itemTotal;
+                          }
+                        } else if (data['category'] != null) {
+                          // အကယ်၍ sales doc တွင် တိုက်ရိုက် category ပါပါက
+                          String catName = data['category'];
+                          double amount = (data['total'] ?? 0).toDouble();
+                          salesCategoryMap[catName] =
+                              (salesCategoryMap[catName] ?? 0) + amount;
+                        }
                       }
                     }
 
-                    // 🟢 ထွက်ငွေ စုစုပေါင်း တွက်ချက်ခြင်း
+                    // 📊 ရောင်းအားအများဆုံး Category များကို စီခြင်း (Descending Order)
+                    var sortedSalesCategories =
+                        salesCategoryMap.entries.toList()
+                          ..sort((a, b) => b.value.compareTo(a.value));
+
+                    // 🔴 Expense & Category တွက်ချက်ခြင်း
                     double totalExpenses = 0;
+                    Map<String, double> expenseCategoryMap = {};
+
                     if (expenseSnapshot.hasData) {
                       for (var doc in expenseSnapshot.data!.docs) {
                         final data = doc.data() as Map<String, dynamic>;
-                        totalExpenses += (data['amount'] ?? 0).toDouble();
+                        double amt = (data['amount'] ?? 0).toDouble();
+                        totalExpenses += amt;
+
+                        String catName =
+                            data['category'] ??
+                            data['categoryName'] ??
+                            'အထွေထွေ (General)';
+                        expenseCategoryMap[catName] =
+                            (expenseCategoryMap[catName] ?? 0) + amt;
                       }
                     }
 
-                    // 🟢 အမြတ် တွက်ချက်ခြင်း (Net Profit / Loss)
+                    // 📊 ထွက်ငွေအများဆုံး Category များကို စီခြင်း
+                    var sortedExpenseCategories =
+                        expenseCategoryMap.entries.toList()
+                          ..sort((a, b) => b.value.compareTo(a.value));
+
                     double netProfit = totalRevenue - totalExpenses;
 
                     return Column(
                       children: [
-                        // Revenue Card
+                        // 1. ဝင်ငွေ Card
                         _buildSummaryCard(
                           title: 'ဝင်ငွေ စုစုပေါင်း (Income)',
                           amount: totalRevenue,
                           color: Colors.green,
                           icon: Icons.arrow_downward,
                         ),
-                        const SizedBox(height: 12),
 
-                        // Expense Card
+                        // 🟢 ဝင်ငွေ Category အလိုက် ရောင်းအားအကောင်းဆုံးစာရင်း
+                        if (sortedSalesCategories.isNotEmpty)
+                          _buildCategoryBreakdown(
+                            title: 'Category အလိုက် ရောင်းအားအကောင်းဆုံးများ',
+                            categories: sortedSalesCategories,
+                            accentColor: Colors.green,
+                          ),
+
+                        const SizedBox(height: 16),
+
+                        // 2. ထွက်ငွေ Card
                         _buildSummaryCard(
                           title: 'ထွက်ငွေ စုစုပေါင်း (Expenses)',
                           amount: totalExpenses,
                           color: Colors.red,
                           icon: Icons.arrow_upward,
                         ),
-                        const SizedBox(height: 12),
 
-                        // Net Profit Card
+                        // 🔴 ထွက်ငွေ Category အလိုက် စာရင်း
+                        if (sortedExpenseCategories.isNotEmpty)
+                          _buildCategoryBreakdown(
+                            title: 'Category အလိုက် ကုန်ကျစရိတ်များ',
+                            categories: sortedExpenseCategories,
+                            accentColor: Colors.red,
+                          ),
+
+                        const SizedBox(height: 16),
+
+                        // 3. အမြတ် Card
                         _buildSummaryCard(
                           title: netProfit >= 0
                               ? 'အမြတ် စုစုပေါင်း (Net Profit)'
@@ -216,6 +275,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // စုစုပေါင်း Card များအတွက် Widget
   Widget _buildSummaryCard({
     required String title,
     required double amount,
@@ -259,6 +319,80 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  // Category အလိုက် ခွဲခြားပြသသည့် Widget
+  Widget _buildCategoryBreakdown({
+    required String title,
+    required List<MapEntry<String, double>> categories,
+    required Color accentColor,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+          ...categories.map((entry) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: 4.0,
+                horizontal: 4.0,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.label_outline, size: 16, color: accentColor),
+                      const SizedBox(width: 6),
+                      Text(
+                        entry.key,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    '${entry.value.toInt()} Ks',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: accentColor,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );

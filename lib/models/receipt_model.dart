@@ -24,11 +24,13 @@ class ReceiptItem {
   final String name;
   final double price;
   final int quantity;
+  final String categoryName;
 
   ReceiptItem({
     required this.name,
     required this.price,
     required this.quantity,
+    required this.categoryName,
   });
 
   double get total {

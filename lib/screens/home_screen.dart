@@ -243,6 +243,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 item.id,
                                 item.name,
                                 item.price.toDouble(),
+                                item.category,
                               );
                               final success = context
                                   .read<CartProvider>()

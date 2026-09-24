@@ -7,12 +7,14 @@ class CartItem {
   final String name;
   final double price;
   int quantity;
+  final String categoryName;
 
   CartItem({
     required this.id,
     required this.name,
     required this.price,
     this.quantity = 1,
+    required this.categoryName,
   });
 }
 
@@ -30,12 +32,14 @@ class CartProvider with ChangeNotifier {
   double get subtotal => _items.fold(0, (sum, item) => sum + item.total);
 
   // Cart ထဲ Item ထည့်ရန်
-  void addItem(String id, String name, double price) {
+  void addItem(String id, String name, double price, String categoryName) {
     int index = _cartItems.indexWhere((item) => item.id == id);
     if (index >= 0) {
       _cartItems[index].quantity++;
     } else {
-      _cartItems.add(CartItem(id: id, name: name, price: price));
+      _cartItems.add(
+        CartItem(id: id, name: name, price: price, categoryName: categoryName),
+      );
     }
     notifyListeners();
   }

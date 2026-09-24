@@ -393,6 +393,7 @@ class _TicketPanelWidget extends State<TicketPanelWidget> {
           name: item.name,
           price: item.price,
           quantity: item.quantity,
+          categoryName: item.categoryName,
         );
       }).toList();
 
