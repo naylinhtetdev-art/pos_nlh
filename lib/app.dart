@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:pos_nlh/localizations/app_localizations.dart';
 import 'package:pos_nlh/providers/auth_provider.dart';
+import 'package:pos_nlh/providers/cart_provider.dart';
 import 'package:pos_nlh/providers/item_provider.dart';
 import 'package:pos_nlh/providers/language_provider.dart';
 import 'package:pos_nlh/providers/theme_provider.dart';
@@ -36,6 +37,7 @@ class PosApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ItemProvider()),
+        ChangeNotifierProvider(create: (_) => CartProvider()),
       ],
       child: Consumer2<ThemeProvider, LanguageProvider>(
         builder: (context, themeProvider, languageProvider, _) {
