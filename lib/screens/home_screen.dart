@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:pos_nlh/providers/cart_provider.dart';
 import 'package:pos_nlh/providers/item_provider.dart';
 import 'package:pos_nlh/screens/dashboard_screen.dart';
+import 'package:pos_nlh/screens/display_screen.dart';
 import 'package:pos_nlh/screens/expenses_screen.dart';
 import 'package:pos_nlh/screens/login_screen.dart';
 import 'package:pos_nlh/screens/sale_history_screen.dart';
@@ -470,7 +471,16 @@ class MyDrawerContent extends StatelessWidget {
                     color: Colors.black87,
                   ),
                   title: const Text('Display Setting'),
-                  onTap: () => Navigator.pop(context),
+                  //onTap: () => Navigator.pop(context),
+                  onTap: () {
+                    if (Scaffold.of(context).isDrawerOpen) {
+                      Navigator.pop(context);
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const DisplayScreen()),
+                    );
+                  },
                 ),
                 ListTile(
                   leading: const Icon(Icons.language, color: Colors.black87),
