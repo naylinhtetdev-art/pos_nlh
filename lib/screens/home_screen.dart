@@ -8,10 +8,15 @@ import 'package:pos_nlh/screens/display_screen.dart';
 import 'package:pos_nlh/screens/expenses_screen.dart';
 import 'package:pos_nlh/screens/login_screen.dart';
 import 'package:pos_nlh/screens/sale_history_screen.dart';
+import 'package:pos_nlh/services/route_service.dart';
 import 'package:pos_nlh/widgets/floating_checkout_bar_widget.dart';
 import 'package:pos_nlh/widgets/ticket_panel_widget.dart';
 import 'package:provider/provider.dart';
 import 'add_item_screen.dart';
+
+void _push(BuildContext context, Widget screen) {
+  RouteService.popAndPush(context, screen);
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -472,15 +477,7 @@ class MyDrawerContent extends StatelessWidget {
                   ),
                   title: const Text('Display Setting'),
                   //onTap: () => Navigator.pop(context),
-                  onTap: () {
-                    if (Scaffold.of(context).isDrawerOpen) {
-                      Navigator.pop(context);
-                    }
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const DisplayScreen()),
-                    );
-                  },
+                  onTap: () => _push(context, const DisplayScreen()),
                 ),
                 ListTile(
                   leading: const Icon(Icons.language, color: Colors.black87),
