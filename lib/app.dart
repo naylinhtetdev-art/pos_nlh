@@ -3,8 +3,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:pos_nlh/localizations/app_localizations.dart';
 import 'package:pos_nlh/providers/auth_provider.dart';
 import 'package:pos_nlh/providers/cart_provider.dart';
+import 'package:pos_nlh/providers/expense_provider.dart';
 import 'package:pos_nlh/providers/item_provider.dart';
 import 'package:pos_nlh/providers/language_provider.dart';
+import 'package:pos_nlh/providers/selected_screen_provider.dart';
 import 'package:pos_nlh/providers/theme_provider.dart';
 import 'package:pos_nlh/screens/splash_screen.dart';
 import 'package:pos_nlh/services/app_navigator.dart';
@@ -38,6 +40,8 @@ class PosApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ItemProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
+        ChangeNotifierProvider(create: (_) => SelectedScreenProvider()),
+        ChangeNotifierProvider(create: (_) => ExpenseProvider()),
       ],
       child: Consumer2<ThemeProvider, LanguageProvider>(
         builder: (context, themeProvider, languageProvider, _) {

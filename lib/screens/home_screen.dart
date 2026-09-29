@@ -8,15 +8,10 @@ import 'package:pos_nlh/screens/display_screen.dart';
 import 'package:pos_nlh/screens/expenses_screen.dart';
 import 'package:pos_nlh/screens/login_screen.dart';
 import 'package:pos_nlh/screens/sale_history_screen.dart';
-import 'package:pos_nlh/services/route_service.dart';
 import 'package:pos_nlh/widgets/floating_checkout_bar_widget.dart';
 import 'package:pos_nlh/widgets/ticket_panel_widget.dart';
 import 'package:provider/provider.dart';
 import 'add_item_screen.dart';
-
-void _push(BuildContext context, Widget screen) {
-  RouteService.popAndPush(context, screen);
-}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,8 +23,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String _shopName = 'POS Shop';
   String _ownerName = 'Owner';
-  bool _isTabletDrawerOpen = false; // Tablet အတွက် Side Drawer ပွင့်/ပိတ် state
+  bool _isTabletDrawerOpen =
+      true; // Tablet တွင် Default အနေဖြင့် Drawer ပွင့်ထားမည်
   String _selectedCategory = 'All items';
+
+  // 🟢 Tablet မြင်ကွင်းအတွက် ညာဘက်အခြမ်းတွင် ပြသမည့် Active Screen State
+  Widget? _activeTabletDetailScreen;
 
   @override
   void initState() {
@@ -55,17 +54,32 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // 🟢 Screen များကို Navigate လုပ်ပေးသည့် Helper Function
+  void _navigateToScreen(Widget screen, bool isTablet) {
+    if (isTablet) {
+      // Tablet ဖြစ်ပါက Drawer ကို မပိတ်ဘဲ ညာဘက် Main View တွင် Screen အစားထိုးမည်
+      setState(() {
+        _activeTabletDetailScreen = screen;
+      });
+    } else {
+      // Phone ဖြစ်ပါက standard Navigator push အသုံးပြုပြီး Drawer ကို ပိတ်မည်
+
+      Navigator.pop(context);
+
+      Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth >= 600; // Screen ကျယ်/ကျဉ်း စစ်ဆေးခြင်း
+    final isTablet = screenWidth >= 600;
 
     final cartProvider = context.watch<CartProvider>();
 
-    // 🟢 Consumer<ItemProvider> ဖြင့် တစ်ခုတည်း ချုံ့ထားပါသည်
     return Consumer<ItemProvider>(
       builder: (context, itemProvider, _) {
-        // 🟢 Category List ကို Dynamic စစ်ထုတ်ခြင်း
+        // Category စစ်ထုတ်ခြင်း
         final Set<String> categorySet = {'All items'};
         for (var item in itemProvider.items) {
           if (item.category != null && item.category!.trim().isNotEmpty) {
@@ -74,12 +88,10 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         final List<String> categories = categorySet.toList();
 
-        // အကယ်၍ ရွေးထားသော category က list ထဲမှာ မရှိတော့ပါက 'All items' သို့ ပြန်ပြောင်းပေးခြင်း
         if (!categories.contains(_selectedCategory)) {
           _selectedCategory = 'All items';
         }
 
-        // 🟢 Category အလိုက် Filter စစ်ပေးခြင်း
         final filteredItems = _selectedCategory == 'All items'
             ? itemProvider.items
             : itemProvider.items.where((item) {
@@ -162,184 +174,213 @@ class _HomeScreenState extends State<HomeScreen> {
               IconButton(
                 icon: const Icon(Icons.add, color: Colors.white),
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AddItemScreen()),
-                  );
+                  _navigateToScreen(const AddItemScreen(), isTablet);
                 },
               ),
             ],
           ),
 
-          // Phone မှာဆိုရင် Standard Overlay Drawer
+          // 📱 Phone တွင်သာ Overlay Drawer ကို အသုံးပြုမည်
           drawer: isTablet
               ? null
-              : MyDrawerContent(ownerName: _ownerName, shopName: _shopName),
+              : Builder(
+                  builder: (scaffoldContext) {
+                    // scaffoldContext ကို အသုံးပြုမည်
+                    return MyDrawerContent(
+                      ownerName: _ownerName,
+                      shopName: _shopName,
+                      onSelectMenu: (screen) =>
+                          _navigateToScreen(screen, false),
+                      onSelectSales: () {
+                        // context နေရာမှာ scaffoldContext ကို သုံးပေးရပါမည်
+                        if (Scaffold.of(scaffoldContext).isDrawerOpen) {
+                          Navigator.pop(scaffoldContext);
+                        }
+                      },
+                    );
+                  },
+                ),
 
           body: Row(
             children: [
-              // Tablet ဖြစ်ပြီး Drawer ပွင့်ထားချိန်တွင် ဘေးတွင် ဘေးချင်းကပ် ပေါ်မည်
+              // 📱 Tablet တွင် Drawer ပွင့်နေပါက Permanent Side Panel အနေဖြင့် ပြမည်
               if (isTablet && _isTabletDrawerOpen)
                 SizedBox(
                   width: 280,
                   child: MyDrawerContent(
                     ownerName: _ownerName,
                     shopName: _shopName,
+                    onSelectMenu: (screen) => _navigateToScreen(screen, true),
+                    onSelectSales: () {
+                      setState(() {
+                        _activeTabletDetailScreen =
+                            null; // Sales View သို့ ပြန်သွားမည်
+                      });
+                    },
                   ),
                 ),
 
               if (isTablet && _isTabletDrawerOpen)
                 const VerticalDivider(width: 1, thickness: 1),
 
-              // GridView ပိုင်း
+              // 📱 Tablet တွင် Screen တစ်ခုခု ရွေးထားပါက ထို Screen ကို ပြမည်။ မဟုတ်ပါက GridView (Sales Main Screen) ကို ပြမည်
               Expanded(
-                child: Builder(
-                  builder: (context) {
-                    if (itemProvider.isLoading) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
+                child: _activeTabletDetailScreen != null && isTablet
+                    ? _activeTabletDetailScreen!
+                    : Builder(
+                        builder: (context) {
+                          if (itemProvider.isLoading) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
 
-                    if (filteredItems.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              _selectedCategory == 'All items'
-                                  ? 'No Items Added Yet'
-                                  : 'No items found in "$_selectedCategory"',
-                              style: const TextStyle(color: Colors.grey),
-                            ),
-                            const SizedBox(height: 10),
-                            ElevatedButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const AddItemScreen(),
+                          if (filteredItems.isEmpty) {
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    _selectedCategory == 'All items'
+                                        ? 'No Items Added Yet'
+                                        : 'No items found in "$_selectedCategory"',
+                                    style: const TextStyle(color: Colors.grey),
                                   ),
-                                );
-                              },
-                              child: const Text('Add Item Now'),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
+                                  const SizedBox(height: 10),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      _navigateToScreen(
+                                        const AddItemScreen(),
+                                        isTablet,
+                                      );
+                                    },
+                                    child: const Text('Add Item Now'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
 
-                    return GridView.builder(
-                      padding: const EdgeInsets.all(8.0),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: isTablet
-                            ? (_isTabletDrawerOpen ? 4 : 5)
-                            : 3,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                        childAspectRatio: 0.9,
-                      ),
-                      itemCount: filteredItems.length,
-                      itemBuilder: (context, index) {
-                        final item = filteredItems[index];
-                        return Card(
-                          elevation: 2,
-                          clipBehavior: Clip.antiAlias,
-                          child: InkWell(
-                            onTap: () {
-                              context.read<CartProvider>().addItem(
-                                item.id,
-                                item.name,
-                                item.price.toDouble(),
-                                item.category,
-                              );
-                              final success = context
-                                  .read<CartProvider>()
-                                  .addProduct(item);
-                              if (!success) {
-                                ScaffoldMessenger.of(
-                                  context,
-                                ).hideCurrentSnackBar();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Stock ထက် ပိုထည့်၍ မရပါ'),
-                                    duration: Duration(seconds: 1),
-                                  ),
-                                );
-                              }
-                            },
-                            child: Stack(
-                              children: [
-                                Container(
-                                  color: Colors.amber.shade100,
-                                  child: Center(
-                                    child: Text(
-                                      item.name.isNotEmpty
-                                          ? item.name
-                                                .substring(0, 1)
-                                                .toUpperCase()
-                                          : '?',
-                                      style: const TextStyle(
-                                        fontSize: 32,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black54,
+                          return GridView.builder(
+                            padding: const EdgeInsets.all(8.0),
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: isTablet
+                                      ? (_isTabletDrawerOpen ? 4 : 5)
+                                      : 3,
+                                  crossAxisSpacing: 8,
+                                  mainAxisSpacing: 8,
+                                  childAspectRatio: 0.9,
+                                ),
+                            itemCount: filteredItems.length,
+                            itemBuilder: (context, index) {
+                              final item = filteredItems[index];
+                              return Card(
+                                elevation: 2,
+                                clipBehavior: Clip.antiAlias,
+                                child: InkWell(
+                                  onTap: () {
+                                    context.read<CartProvider>().addItem(
+                                      item.id,
+                                      item.name,
+                                      item.price.toDouble(),
+                                      item.category,
+                                    );
+                                    final success = context
+                                        .read<CartProvider>()
+                                        .addProduct(item);
+                                    if (!success) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).hideCurrentSnackBar();
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Stock ထက် ပိုထည့်၍ မရပါ',
+                                          ),
+                                          duration: Duration(seconds: 1),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  child: Stack(
+                                    children: [
+                                      Container(
+                                        color: Colors.amber.shade100,
+                                        child: Center(
+                                          child: Text(
+                                            item.name.isNotEmpty
+                                                ? item.name
+                                                      .substring(0, 1)
+                                                      .toUpperCase()
+                                                : '?',
+                                            style: const TextStyle(
+                                              fontSize: 32,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black54,
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                      Positioned(
+                                        bottom: 0,
+                                        left: 0,
+                                        right: 0,
+                                        child: Container(
+                                          color: Colors.grey.shade800,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 4,
+                                            horizontal: 6,
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                item.name,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                              Text(
+                                                '${item.price.toInt()} Ks',
+                                                style: const TextStyle(
+                                                  color: Colors.yellowAccent,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                              Text(
+                                                'Stock: ${item.stock}',
+                                                style: const TextStyle(
+                                                  color: Colors.green,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                Positioned(
-                                  bottom: 0,
-                                  left: 0,
-                                  right: 0,
-                                  child: Container(
-                                    color: Colors.grey.shade800,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 4,
-                                      horizontal: 6,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          item.name,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        Text(
-                                          '${item.price.toInt()} Ks',
-                                          style: const TextStyle(
-                                            color: Colors.yellowAccent,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Stock: ${item.stock}',
-                                          style: const TextStyle(
-                                            color: Colors.green,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
               ),
 
-              // ညာဘက် Ticket Panel Area
-              if (isTablet && cartProvider.cartItems.isNotEmpty)
+              // ညာဘက် Ticket Panel (Sales Screen ပေါ်နေချိန်တွင်သာ ပြမည်)
+              if (isTablet &&
+                  _activeTabletDetailScreen == null &&
+                  cartProvider.cartItems.isNotEmpty)
                 const SizedBox(width: 320, child: TicketPanelWidget()),
             ],
           ),
@@ -359,15 +400,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// Drawer Widget
+// 🟢 Reusable Drawer Content Widget
 class MyDrawerContent extends StatelessWidget {
   final String ownerName;
   final String shopName;
+  final Function(Widget screen) onSelectMenu;
+  final VoidCallback onSelectSales;
 
   const MyDrawerContent({
     super.key,
     required this.ownerName,
     required this.shopName,
+    required this.onSelectMenu,
+    required this.onSelectSales,
   });
 
   @override
@@ -409,15 +454,7 @@ class MyDrawerContent extends StatelessWidget {
                     color: Color.fromARGB(255, 76, 106, 175),
                   ),
                   title: const Text('Dashboard'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const DashboardScreen(),
-                      ),
-                    );
-                  },
+                  onTap: () => onSelectMenu(const DashboardScreen()),
                 ),
                 ListTile(
                   leading: const Icon(
@@ -425,50 +462,22 @@ class MyDrawerContent extends StatelessWidget {
                     color: Color(0xFF4CAF50),
                   ),
                   title: const Text('Sales'),
-                  onTap: () {
-                    if (Scaffold.of(context).isDrawerOpen) {
-                      Navigator.pop(context);
-                    }
-                  },
+                  onTap: onSelectSales,
                 ),
                 ListTile(
                   leading: const Icon(Icons.receipt_long),
                   title: const Text('Receipts'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const SaleHistoryScreen(),
-                      ),
-                    );
-                  },
+                  onTap: () => onSelectMenu(const SaleHistoryScreen()),
                 ),
                 ListTile(
                   leading: const Icon(Icons.list_alt),
                   title: const Text('My Items'),
-                  onTap: () {
-                    if (Scaffold.of(context).isDrawerOpen) {
-                      Navigator.pop(context);
-                    }
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AddItemScreen()),
-                    );
-                  },
+                  onTap: () => onSelectMenu(const AddItemScreen()),
                 ),
                 ListTile(
                   leading: const Icon(Icons.account_balance_wallet_outlined),
                   title: const Text('Expenses'),
-                  onTap: () {
-                    if (Scaffold.of(context).isDrawerOpen) {
-                      Navigator.pop(context);
-                    }
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ExpensesScreen()),
-                    );
-                  },
+                  onTap: () => onSelectMenu(const ExpensesScreen()),
                 ),
                 ListTile(
                   leading: const Icon(
@@ -476,13 +485,16 @@ class MyDrawerContent extends StatelessWidget {
                     color: Colors.black87,
                   ),
                   title: const Text('Display Setting'),
-                  //onTap: () => Navigator.pop(context),
-                  onTap: () => _push(context, const DisplayScreen()),
+                  onTap: () => onSelectMenu(const DisplayScreen()),
                 ),
                 ListTile(
                   leading: const Icon(Icons.language, color: Colors.black87),
                   title: const Text('Language'),
-                  onTap: () => Navigator.pop(context),
+                  onTap: () {
+                    if (Scaffold.of(context).isDrawerOpen) {
+                      Navigator.pop(context);
+                    }
+                  },
                 ),
                 ListTile(
                   leading: const Icon(Icons.settings),
