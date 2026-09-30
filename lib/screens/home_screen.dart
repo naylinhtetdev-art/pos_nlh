@@ -262,112 +262,328 @@ class _HomeScreenState extends State<HomeScreen> {
                           }
 
                           return GridView.builder(
-                            padding: const EdgeInsets.all(8.0),
+                            padding: const EdgeInsets.all(12),
                             gridDelegate:
                                 SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: isTablet
                                       ? (_isTabletDrawerOpen ? 4 : 5)
                                       : 3,
-                                  crossAxisSpacing: 8,
-                                  mainAxisSpacing: 8,
-                                  childAspectRatio: 0.9,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 10,
+
+                                  // Card ကို နည်းနည်းပိုကျစ်လစ်အောင်
+                                  //childAspectRatio: isTablet ? 0.85 : 0.72,
+                                  mainAxisExtent: isTablet ? 225 : 205,
                                 ),
                             itemCount: filteredItems.length,
                             itemBuilder: (context, index) {
                               final item = filteredItems[index];
-                              return Card(
-                                elevation: 2,
-                                clipBehavior: Clip.antiAlias,
+
+                              final bool outOfStock = item.stock <= 0;
+                              final bool lowStock =
+                                  item.stock > 0 && item.stock <= 5;
+
+                              return Material(
+                                color: Colors.transparent,
                                 child: InkWell(
-                                  onTap: () {
-                                    context.read<CartProvider>().addItem(
-                                      item.id,
-                                      item.name,
-                                      item.price.toDouble(),
-                                      item.category,
-                                    );
-                                    final success = context
-                                        .read<CartProvider>()
-                                        .addProduct(item);
-                                    if (!success) {
-                                      ScaffoldMessenger.of(
+                                  borderRadius: BorderRadius.circular(18),
+                                  onTap: outOfStock
+                                      ? null
+                                      : () {
+                                          final cart = context
+                                              .read<CartProvider>();
+
+                                          // cart.addItem(
+                                          //   item.id,
+                                          //   item.name,
+                                          //   item.price.toDouble(),
+                                          //   item.category,
+                                          //   item.stock,
+                                          // );
+
+                                          final success = cart.addProduct(item);
+
+                                          if (!success) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).hideCurrentSnackBar();
+
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Stock ထက် ပိုထည့်၍ မရပါ',
+                                                ),
+                                                duration: Duration(seconds: 1),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(
                                         context,
-                                      ).hideCurrentSnackBar();
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Stock ထက် ပိုထည့်၍ မရပါ',
-                                          ),
-                                          duration: Duration(seconds: 1),
+                                      ).colorScheme.surface,
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.outline.withOpacity(0.12),
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.04),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3),
                                         ),
-                                      );
-                                    }
-                                  },
-                                  child: Stack(
-                                    children: [
-                                      Container(
-                                        color: Colors.amber.shade100,
-                                        child: Center(
-                                          child: Text(
-                                            item.name.isNotEmpty
-                                                ? item.name
-                                                      .substring(0, 1)
-                                                      .toUpperCase()
-                                                : '?',
-                                            style: const TextStyle(
-                                              fontSize: 32,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black54,
+                                      ],
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(18),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          // ─────────────────────────
+                                          // Product Image / Initial
+                                          // ─────────────────────────
+                                          Expanded(
+                                            flex: 5,
+                                            child: Stack(
+                                              children: [
+                                                Container(
+                                                  width: double.infinity,
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      begin: Alignment.topLeft,
+                                                      end:
+                                                          Alignment.bottomRight,
+                                                      colors: [
+                                                        Theme.of(context)
+                                                            .colorScheme
+                                                            .primary
+                                                            .withOpacity(0.08),
+                                                        Theme.of(context)
+                                                            .colorScheme
+                                                            .primary
+                                                            .withOpacity(0.18),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  child: Center(
+                                                    child: Container(
+                                                      width: 52,
+                                                      height: 52,
+                                                      decoration: BoxDecoration(
+                                                        color: Theme.of(context)
+                                                            .colorScheme
+                                                            .primary
+                                                            .withOpacity(0.12),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              18,
+                                                            ),
+                                                      ),
+                                                      child: Center(
+                                                        child: Text(
+                                                          item.name.isNotEmpty
+                                                              ? item.name
+                                                                    .substring(
+                                                                      0,
+                                                                      1,
+                                                                    )
+                                                                    .toUpperCase()
+                                                              : '?',
+                                                          style: TextStyle(
+                                                            fontSize: 30,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            color:
+                                                                Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .colorScheme
+                                                                    .primary,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+
+                                                // ─────────────────────
+                                                // Stock Badge
+                                                // ─────────────────────
+                                                Positioned(
+                                                  top: 8,
+                                                  right: 8,
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 4,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: outOfStock
+                                                          ? Colors.red
+                                                          : lowStock
+                                                          ? Colors.orange
+                                                          : Colors.green,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            20,
+                                                          ),
+                                                    ),
+                                                    child: Text(
+                                                      outOfStock
+                                                          ? 'Out'
+                                                          : 'Stock ${item.stock}',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+
+                                                // ─────────────────────
+                                                // Out of Stock Overlay
+                                                // ─────────────────────
+                                                if (outOfStock)
+                                                  Positioned.fill(
+                                                    child: Container(
+                                                      color: Colors.white
+                                                          .withOpacity(0.55),
+                                                      child: const Center(
+                                                        child: Icon(
+                                                          Icons
+                                                              .remove_shopping_cart_outlined,
+                                                          size: 30,
+                                                          color: Colors.red,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
                                             ),
                                           ),
-                                        ),
-                                      ),
-                                      Positioned(
-                                        bottom: 0,
-                                        left: 0,
-                                        right: 0,
-                                        child: Container(
-                                          color: Colors.grey.shade800,
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 4,
-                                            horizontal: 6,
+
+                                          // ─────────────────────────
+                                          // Product Information
+                                          // ─────────────────────────
+                                          Expanded(
+                                            flex: 4,
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.fromLTRB(
+                                                    10,
+                                                    8,
+                                                    10,
+                                                    8,
+                                                  ),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  // Product Name
+                                                  Text(
+                                                    item.name,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+
+                                                  const SizedBox(height: 4),
+
+                                                  // Category
+                                                  if (item.category.isNotEmpty)
+                                                    Text(
+                                                      item.category,
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        color: Colors
+                                                            .grey
+                                                            .shade500,
+                                                      ),
+                                                    ),
+
+                                                  const Spacer(),
+
+                                                  // Price + Add Button
+                                                  Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: FittedBox(
+                                                          alignment: Alignment
+                                                              .centerLeft,
+                                                          fit: BoxFit.scaleDown,
+                                                          child: Text(
+                                                            '${item.price.toInt()} Ks',
+                                                            style: TextStyle(
+                                                              fontSize: 15,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                              color:
+                                                                  Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .colorScheme
+                                                                      .primary,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+
+                                                      const SizedBox(width: 6),
+
+                                                      // Add Button
+                                                      Container(
+                                                        width: 30,
+                                                        height: 30,
+                                                        decoration: BoxDecoration(
+                                                          color: outOfStock
+                                                              ? Colors
+                                                                    .grey
+                                                                    .shade200
+                                                              : Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .colorScheme
+                                                                    .primary,
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                10,
+                                                              ),
+                                                        ),
+                                                        child: Icon(
+                                                          Icons.add,
+                                                          size: 19,
+                                                          color: outOfStock
+                                                              ? Colors.grey
+                                                              : Colors.white,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
                                           ),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(
-                                                item.name,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                              Text(
-                                                '${item.price.toInt()} Ks',
-                                                style: const TextStyle(
-                                                  color: Colors.yellowAccent,
-                                                  fontSize: 11,
-                                                ),
-                                              ),
-                                              Text(
-                                                'Stock: ${item.stock}',
-                                                style: const TextStyle(
-                                                  color: Colors.green,
-                                                  fontSize: 11,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
+                                        ],
                                       ),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               );

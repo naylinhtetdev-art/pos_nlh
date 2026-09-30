@@ -8,6 +8,7 @@ class CartItem {
   final double price;
   int quantity;
   final String categoryName;
+  final int stock;
 
   CartItem({
     required this.id,
@@ -15,6 +16,7 @@ class CartItem {
     required this.price,
     this.quantity = 1,
     required this.categoryName,
+    required this.stock,
   });
 }
 
@@ -32,37 +34,90 @@ class CartProvider with ChangeNotifier {
   double get subtotal => _items.fold(0, (sum, item) => sum + item.total);
 
   // Cart ထဲ Item ထည့်ရန်
-  void addItem(String id, String name, double price, String categoryName) {
+  void addItem(
+    String id,
+    String name,
+    double price,
+    String categoryName,
+    int stock,
+  ) {
     int index = _cartItems.indexWhere((item) => item.id == id);
     if (index >= 0) {
       _cartItems[index].quantity++;
     } else {
       _cartItems.add(
-        CartItem(id: id, name: name, price: price, categoryName: categoryName),
+        CartItem(
+          id: id,
+          name: name,
+          price: price,
+          categoryName: categoryName,
+          stock: stock,
+        ),
       );
     }
     notifyListeners();
   }
 
+  // bool addProduct(ItemModel product) {
+  //   if (product.stock <= 0) return false;
+
+  //   final index = _items.indexWhere((item) => item.product.id == product.id);
+
+  //   if (index != -1) {
+  //     // ရှိပြီးသား item ဖြစ်ပါက Stock မကျော်မှ Quantity တိုးမည်
+  //     if (_items[index].quantity < product.stock) {
+  //       _items[index].quantity++;
+  //       notifyListeners();
+  //       return true;
+  //     } else {
+  //       return false; // Stock ပြည့်နေပါက false Return ပြန်မည်
+  //     }
+  //   } else {
+  //     // Item အသစ်ထည့်မည်
+  //     //_items.add(CartItemModel(product: product, quantity: 1));
+  //     //notifyListeners();
+  //     //return true;
+  //     // 3. Cart ထဲမှာ မရှိသေးရင် Product Stock က 1 သို့မဟုတ် 1 ထက်ကြီးမှ ထည့်မည်
+  //     if (product.stock >= 1) {
+  //       _items.add(CartItemModel(product: product, quantity: 1));
+  //       notifyListeners();
+  //       return true; // ထည့်လို့ အဆင်ပြေတယ်
+  //     } else {
+  //       return false; // Stock 0 ဖြစ်နေပါသည်
+  //     }
+  //   }
+  // }
   bool addProduct(ItemModel product) {
-    if (product.stock <= 0) return false;
+    // 1. Cart ထဲမှာ ဤ Product ရှိပြီးသားလား ရှာပါ
+    final index = _cartItems.indexWhere((element) => element.id == product.id);
 
-    final index = _items.indexWhere((item) => item.product.id == product.id);
-
-    if (index != -1) {
-      // ရှိပြီးသား item ဖြစ်ပါက Stock မကျော်မှ Quantity တိုးမည်
-      if (_items[index].quantity < product.stock) {
-        _items[index].quantity++;
+    if (index >= 0) {
+      // 2. ရှိပြီးသားဆိုရင် Cart ထဲက လက်ရှိ Qty + 1 သည် Product Stock ထက် ပိုမပို စစ်ပါ
+      if (_cartItems[index].quantity < product.stock) {
+        _cartItems[index].quantity++;
         notifyListeners();
-        return true;
+        return true; // ထည့်လို့ အဆင်ပြေတယ်
       } else {
-        return false; // Stock ပြည့်နေပါက false Return ပြန်မည်
+        return false; // Stock မလောက်တော့ပါ
       }
     } else {
-      // Item အသစ်ထည့်မည်
-      _items.add(CartItemModel(product: product, quantity: 1));
-      notifyListeners();
-      return true;
+      // 3. Cart ထဲမှာ မရှိသေးရင် Product Stock က 1 သို့မဟုတ် 1 ထက်ကြီးမှ ထည့်မည်
+      if (product.stock >= 1) {
+        _cartItems.add(
+          CartItem(
+            id: product.id,
+            name: product.name,
+            price: product.price.toDouble(),
+            categoryName: product.category,
+            quantity: 1,
+            stock: product.stock,
+          ),
+        );
+        notifyListeners();
+        return true; // ထည့်လို့ အဆင်ပြေတယ်
+      } else {
+        return false; // Stock 0 ဖြစ်နေပါသည်
+      }
     }
   }
 

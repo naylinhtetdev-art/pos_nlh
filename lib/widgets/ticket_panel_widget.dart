@@ -156,9 +156,28 @@ class _TicketPanelWidget extends State<TicketPanelWidget> {
                                     ),
                                     InkWell(
                                       onTap: () {
-                                        context
-                                            .read<CartProvider>()
-                                            .increaseQuantity(item.id);
+                                        // 🟢 Stock ထက်ကျော်လွန်၍ မတိုးအောင် စစ်ဆေးခြင်း
+                                        if (item.quantity < item.stock) {
+                                          context
+                                              .read<CartProvider>()
+                                              .increaseQuantity(item.id);
+                                        } else {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Stock ထက် ပို၍ ရောင်းမရပါ။ (လက်ကျန်: ${item.stock})',
+                                              ),
+                                              duration: const Duration(
+                                                seconds: 1,
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                        // context
+                                        //     .read<CartProvider>()
+                                        //     .increaseQuantity(item.id);
                                       },
                                       child: const Padding(
                                         padding: EdgeInsets.all(2.0),
@@ -294,7 +313,7 @@ class _TicketPanelWidget extends State<TicketPanelWidget> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Total: ${cart.total.toStringAsFixed(0)} MMK',
+                'Total: ${cart.totalPrice.toStringAsFixed(0)} MMK',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -397,22 +416,63 @@ class _TicketPanelWidget extends State<TicketPanelWidget> {
         );
       }).toList();
 
+      // 3. FIRESTORE WRITE BATCH (Sale သိမ်းမည် + Stock လျှော့မည်)
+      // =========================================================
+      final batch = FirebaseFirestore.instance.batch();
+
+      // (A) Sales collection ထဲသို့ Document reference ယူပြီး Add လုပ်ရန် ပြင်ခြင်း
+      final saleRef = FirebaseFirestore.instance
+          .collection('Shops')
+          .doc(uid)
+          .collection('sales')
+          .doc();
+
+      batch.set(saleRef, {
+        'uid': uid,
+        'invoiceNo': invoiceNo,
+        'subtotal': subtotal,
+        'discount': discount,
+        'total': totalAmount,
+        'paymentMethod': paymentMethod,
+        'items': items,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // (B) Cart ထဲရှိ Product တိုင်း၏ Stock ကို FieldValue.increment(-quantity) ဖြင့် လျှော့ခြင်း
+      for (var item in cart.cartItems) {
+        // ⚠️ သင်၏ Products collection လမ်းကြောင်းကို စစ်ဆေးပါ
+        // ဥပမာ- 'Shops/$uid/products/$itemId' သို့မဟုတ် 'products/$itemId'
+        final productRef = FirebaseFirestore.instance
+            .collection('Shops')
+            .doc(uid)
+            .collection('items')
+            .doc(item.id);
+
+        batch.update(productRef, {
+          'stock': FieldValue.increment(-item.quantity),
+          // သို့မဟုတ် 'quantity': FieldValue.increment(-item.quantity),
+        });
+      }
+
+      // (C) Batch ကို တစ်ပြိုင်နက်တည်း Commit လုပ်ခြင်း
+      await batch.commit();
+
       // =====================================
       // 5. SAVE SALE TO FIRESTORE
       // =====================================
       // 🟢 FirebaseFirestore သို့ တိုက်ရိုက် သို့မဟုတ် SaleService မှတစ်ဆင့် သိမ်းဆည်းခြင်း
-      await FirebaseFirestore.instance
-          .collection('Shops/$uid/sales') // သို့မဟုတ် 'shops/${user.uid}/sales'
-          .add({
-            'uid': user.uid,
-            'invoiceNo': invoiceNo,
-            'subtotal': subtotal,
-            'discount': discount,
-            'total': totalAmount,
-            'paymentMethod': paymentMethod,
-            'items': items,
-            'createdAt': FieldValue.serverTimestamp(),
-          });
+      // await FirebaseFirestore.instance
+      //     .collection('Shops/$uid/sales') // သို့မဟုတ် 'shops/${user.uid}/sales'
+      //     .add({
+      //       'uid': user.uid,
+      //       'invoiceNo': invoiceNo,
+      //       'subtotal': subtotal,
+      //       'discount': discount,
+      //       'total': totalAmount,
+      //       'paymentMethod': paymentMethod,
+      //       'items': items,
+      //       'createdAt': FieldValue.serverTimestamp(),
+      //     });
 
       // =====================================
       // 6. CREATE RECEIPT MODEL
@@ -458,7 +518,7 @@ class _TicketPanelWidget extends State<TicketPanelWidget> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) {
+      builder: (dialogContext) {
         return Dialog(
           insetPadding: const EdgeInsets.symmetric(
             horizontal: 20,
@@ -490,7 +550,7 @@ class _TicketPanelWidget extends State<TicketPanelWidget> {
 
                       IconButton(
                         onPressed: () {
-                          Navigator.pop(context);
+                          Navigator.pop(dialogContext);
                         },
                         icon: const Icon(Icons.close),
                       ),
@@ -688,7 +748,7 @@ class _TicketPanelWidget extends State<TicketPanelWidget> {
                     height: 48,
                     child: TextButton(
                       onPressed: () {
-                        Navigator.pop(context);
+                        Navigator.pop(dialogContext);
                       },
                       child: const Text('Close'),
                     ),
@@ -747,398 +807,3 @@ class _TicketPanelWidget extends State<TicketPanelWidget> {
     return '$day/$month/$year $hour:$minute';
   }
 }
-// import 'package:flutter/material.dart';
-// import 'package:pos_nlh/providers/cart_provider.dart';
-// import 'package:provider/provider.dart';
-
-// class TicketPanelWidget extends StatelessWidget {
-//   const TicketPanelWidget({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final cart = context.watch<CartProvider>();
-
-//     return Column(
-//       children: [
-//         // Ticket Header
-//         Container(
-//           padding: const EdgeInsets.all(12),
-//           color: Colors.white,
-//           child: Row(
-//             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//             children: [
-//               const Text(
-//                 'Ticket',
-//                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-//               ),
-//               IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
-//             ],
-//           ),
-//         ),
-//         const Divider(height: 1),
-
-//         // Selected Items List
-//         Expanded(
-//           child: cart.cartItems.isEmpty
-//               ? const Center(
-//                   child: Text(
-//                     'No items in ticket',
-//                     style: TextStyle(color: Colors.grey),
-//                   ),
-//                 )
-//               : ListView.builder(
-//                   padding: const EdgeInsets.all(12),
-//                   itemCount: cart.cartItems.length,
-//                   itemBuilder: (context, index) {
-//                     final item = cart.cartItems[index];
-//                     return Container(
-//                       margin: const EdgeInsets.only(bottom: 12),
-//                       padding: const EdgeInsets.all(12),
-//                       decoration: BoxDecoration(
-//                         color: Colors.white,
-//                         borderRadius: BorderRadius.circular(16),
-//                         border: Border.all(color: Colors.grey.shade300),
-//                       ),
-//                       child: Row(
-//                         crossAxisAlignment: CrossAxisAlignment.start,
-//                         children: [
-//                           // Product Icon Container
-//                           Container(
-//                             width: 60,
-//                             height: 60,
-//                             decoration: BoxDecoration(
-//                               color: Colors.grey.shade100,
-//                               borderRadius: BorderRadius.circular(12),
-//                             ),
-//                             child: const Icon(
-//                               Icons.shopping_bag_outlined,
-//                               color: Colors.black,
-//                               size: 28,
-//                             ),
-//                           ),
-//                           const SizedBox(width: 12),
-
-//                           // Product Details & Quantity Controls
-//                           Expanded(
-//                             child: Column(
-//                               crossAxisAlignment: CrossAxisAlignment.start,
-//                               children: [
-//                                 Text(
-//                                   item.name,
-//                                   style: const TextStyle(
-//                                     fontSize: 16,
-//                                     fontWeight: FontWeight.bold,
-//                                   ),
-//                                 ),
-//                                 const SizedBox(height: 4),
-//                                 Text(
-//                                   '${item.price.toInt()} MMK',
-//                                   style: TextStyle(
-//                                     color: Colors.grey.shade600,
-//                                     fontSize: 13,
-//                                   ),
-//                                 ),
-//                                 const SizedBox(height: 12),
-
-//                                 // Quantity Controls (- 1 +)
-//                                 Row(
-//                                   children: [
-//                                     InkWell(
-//                                       onTap: () {
-//                                         // CartProvider ထဲက Decrease function ကို ခေါ်ပါ
-//                                         // cart.decreaseQuantity(item);
-//                                         context
-//                                             .read<CartProvider>()
-//                                             .decreaseQuantity(item.id);
-//                                       },
-//                                       child: const Icon(Icons.remove, size: 20),
-//                                     ),
-//                                     Padding(
-//                                       padding: const EdgeInsets.symmetric(
-//                                         horizontal: 16,
-//                                       ),
-//                                       child: Text(
-//                                         '${item.quantity}',
-//                                         style: const TextStyle(
-//                                           fontSize: 16,
-//                                           fontWeight: FontWeight.bold,
-//                                         ),
-//                                       ),
-//                                     ),
-//                                     InkWell(
-//                                       onTap: () {
-//                                         // CartProvider ထဲက Increase/Add function ကို ခေါ်ပါ
-//                                         // cart.addToCart(item);
-//                                         context
-//                                             .read<CartProvider>()
-//                                             .increaseQuantity(item.id);
-//                                       },
-//                                       child: const Icon(Icons.add, size: 20),
-//                                     ),
-//                                   ],
-//                                 ),
-//                               ],
-//                             ),
-//                           ),
-
-//                           // Total Price & Delete Button
-//                           Column(
-//                             crossAxisAlignment: CrossAxisAlignment.end,
-//                             children: [
-//                               Text(
-//                                 '${(item.price * item.quantity).toInt()} MMK',
-//                                 style: const TextStyle(
-//                                   fontWeight: FontWeight.bold,
-//                                   fontSize: 14,
-//                                 ),
-//                               ),
-//                               const SizedBox(height: 16),
-//                               IconButton(
-//                                 constraints: const BoxConstraints(),
-//                                 padding: EdgeInsets.zero,
-//                                 icon: const Icon(
-//                                   Icons.delete_outline,
-//                                   color: Colors.redAccent,
-//                                   size: 22,
-//                                 ),
-//                                 onPressed: () {
-//                                   // CartProvider ထဲက Remove Item function ကို ခေါ်ပါ
-//                                   // cart.removeFromCart(item);
-//                                   context.read<CartProvider>().removeItem(
-//                                     item.id,
-//                                   );
-//                                 },
-//                               ),
-//                             ],
-//                           ),
-//                         ],
-//                       ),
-//                     );
-//                   },
-//                 ),
-//         ),
-
-//         // Total Price Summary Section (ပုံပါအတိုင်း Items, Subtotal, Total)
-//         Container(
-//           padding: const EdgeInsets.all(16),
-//           color: Colors.white,
-//           child: Column(
-//             children: [
-//               Row(
-//                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                 children: [
-//                   const Text('Items', style: TextStyle(color: Colors.grey)),
-//                   Text(
-//                     '${cart.cartItems.length}',
-//                     style: const TextStyle(fontWeight: FontWeight.bold),
-//                   ),
-//                 ],
-//               ),
-//               const SizedBox(height: 6),
-//               Row(
-//                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                 children: [
-//                   const Text('Subtotal', style: TextStyle(color: Colors.grey)),
-//                   Text(
-//                     '${cart.totalPrice.toInt()} MMK',
-//                     style: const TextStyle(fontWeight: FontWeight.bold),
-//                   ),
-//                 ],
-//               ),
-//               const SizedBox(height: 6),
-//               const Row(
-//                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                 children: [
-//                   Text('Discount', style: TextStyle(color: Colors.grey)),
-//                   Text('0 MMK', style: TextStyle(fontWeight: FontWeight.bold)),
-//                 ],
-//               ),
-//               const Divider(height: 20),
-//               Row(
-//                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                 children: [
-//                   const Text(
-//                     'TOTAL',
-//                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-//                   ),
-//                   Text(
-//                     '${cart.totalPrice.toInt()} MMK',
-//                     style: const TextStyle(
-//                       fontSize: 18,
-//                       fontWeight: FontWeight.bold,
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//               const SizedBox(height: 12),
-
-//               // CHECKOUT Button
-//               SizedBox(
-//                 width: double.infinity,
-//                 height: 48,
-//                 child: ElevatedButton(
-//                   style: ElevatedButton.styleFrom(
-//                     backgroundColor: const Color(
-//                       0xFF5C5494,
-//                     ), // ပုံထဲက ခရမ်းရောင်/Grey Tone အရောင်
-//                     shape: RoundedRectangleBorder(
-//                       borderRadius: BorderRadius.circular(24),
-//                     ),
-//                   ),
-//                   onPressed: () {
-//                     // Checkout Functionality
-//                   },
-//                   child: const Text(
-//                     'CHECKOUT',
-//                     style: TextStyle(
-//                       color: Colors.white,
-//                       fontWeight: FontWeight.bold,
-//                     ),
-//                   ),
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ],
-//     );
-//   }
-// }
-// import 'package:flutter/material.dart';
-// import 'package:pos_nlh/providers/cart_provider.dart';
-// import 'package:provider/provider.dart';
-
-// class TicketPanelWidget extends StatelessWidget {
-//   const TicketPanelWidget({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final cart = context.watch<CartProvider>();
-
-//     return Column(
-//       children: [
-//         // Ticket Header
-//         Container(
-//           padding: const EdgeInsets.all(12),
-//           color: Colors.white,
-//           child: Row(
-//             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//             children: [
-//               const Text(
-//                 'Ticket',
-//                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-//               ),
-//               IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
-//             ],
-//           ),
-//         ),
-//         const Divider(height: 1),
-
-//         // Dine in / Dining Option
-//         Container(
-//           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-//           color: Colors.white,
-//           child: const Row(
-//             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//             children: [
-//               Text('Dine in', style: TextStyle(color: Colors.grey)),
-//               Icon(Icons.arrow_drop_down, color: Colors.grey),
-//             ],
-//           ),
-//         ),
-//         const Divider(height: 1),
-
-//         // Selected Items List
-//         Expanded(
-//           child: cart.cartItems.isEmpty
-//               ? const Center(
-//                   child: Text(
-//                     'No items in ticket',
-//                     style: TextStyle(color: Colors.grey),
-//                   ),
-//                 )
-//               : ListView.builder(
-//                   itemCount: cart.cartItems.length,
-//                   itemBuilder: (context, index) {
-//                     final item = cart.cartItems[index];
-//                     return ListTile(
-//                       title: Text('${item.name} x ${item.quantity}'),
-//                       trailing: Text(
-//                         'Ks ${(item.price * item.quantity).toInt()}',
-//                         style: const TextStyle(fontWeight: FontWeight.bold),
-//                       ),
-//                     );
-//                   },
-//                 ),
-//         ),
-
-//         // Total Price Display
-//         Container(
-//           padding: const EdgeInsets.all(12),
-//           color: Colors.white,
-//           child: Row(
-//             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//             children: [
-//               const Text('Total', style: TextStyle(fontSize: 16)),
-//               Text(
-//                 'Ks ${cart.totalPrice.toInt()}',
-//                 style: const TextStyle(
-//                   fontSize: 18,
-//                   fontWeight: FontWeight.bold,
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-
-//         // Bottom Action Buttons (SAVE / CHARGE)
-//         Row(
-//           children: [
-//             Expanded(
-//               child: SizedBox(
-//                 height: 50,
-//                 child: ElevatedButton(
-//                   style: ElevatedButton.styleFrom(
-//                     backgroundColor: const Color(0xFF8BC34A),
-//                     shape: const RoundedRectangleBorder(),
-//                   ),
-//                   onPressed: () {
-//                     // Save action
-//                   },
-//                   child: const Text(
-//                     'SAVE',
-//                     style: TextStyle(
-//                       color: Colors.white,
-//                       fontWeight: FontWeight.bold,
-//                     ),
-//                   ),
-//                 ),
-//               ),
-//             ),
-//             Expanded(
-//               child: SizedBox(
-//                 height: 50,
-//                 child: ElevatedButton(
-//                   style: ElevatedButton.styleFrom(
-//                     backgroundColor: const Color(0xFF4CAF50),
-//                     shape: const RoundedRectangleBorder(),
-//                   ),
-//                   onPressed: () {
-//                     // Charge / Checkout action
-//                   },
-//                   child: const Text(
-//                     'CHARGE',
-//                     style: TextStyle(
-//                       color: Colors.white,
-//                       fontWeight: FontWeight.bold,
-//                     ),
-//                   ),
-//                 ),
-//               ),
-//             ),
-//           ],
-//         ),
-//       ],
-//     );
-//   }
-// }
